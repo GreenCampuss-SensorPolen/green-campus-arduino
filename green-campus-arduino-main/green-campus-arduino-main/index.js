@@ -13,49 +13,21 @@ const API_URL_SENSOR = API_URL + '/technical/nodes';
 async function main() {
   const existingSensors = await fetchExistingSensors();
 
-  let temperatureSensor = await getOrRegisterSensor(existingSensors, 'name 1', 'description 1', 'location 1', 'building 1', 'floor 1');
-  let pressureSensor = await getOrRegisterSensor(existingSensors, 'name 2', 'description 2', 'location 2', 'building 2', 'floor 2');
-  let co2Sensor = await getOrRegisterSensor(existingSensors, 'name 3', 'description 3', 'location 3', 'building 3', 'floor 3');
-  let matrixSensor = await getOrRegisterSensor(existingSensors, 'name 4', 'description 4', 'location 4', 'building 4', 'floor 4');
+  // 1. Tipos en MAYÚSCULAS para pasar la validación estricta de la API
+  let temperatureSensor = await getOrRegisterSensor(existingSensors, 'Sensor Temperatura v2', 'TEMPERATURA', 'Aula 1', 'Edificio Principal', 'Planta Baja');
+  let co2Sensor = await getOrRegisterSensor(existingSensors, 'Sensor CO2 v2', 'CO2', 'Aula 1', 'Edificio Principal', 'Planta Baja');
 
-  const port = new SerialPort({
-    path: (process.platform === 'linux') ? COM_PORT_LINUX : COM_PORT,
-    baudRate: 9600, 
-  });
-
-  const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+  console.log("Iniciando Gemelo Digital sin hardware físico...");
   
-  parser.on('data', async (data) => {
-    const dataArray = data.split(':');
-    let sensorId = 0;
+  setInterval(async () => {
+    // 2. Convertimos el resultado de toFixed de nuevo a Número real
+    let tempMock = Number((20.0 + Math.random() * 5).toFixed(2));
+    let co2Mock = Number((10000.0 + Math.random() * 200).toFixed(0));
     
-    switch(dataArray[0]) {
-      case 'temperature':
-        sensorId = temperatureSensor;
-        console.log(` > temperature: ${dataArray[1]}`); break;
-      case 'pressure':
-        sensorId = pressureSensor;
-        console.log(` > pressure: ${dataArray[1]}`); break;
-      case 'co2':
-        sensorId = co2Sensor;
-        console.log(` > co2: ${dataArray[1]}`); break;
-      case 'matrix':
-        sensorId = matrixSensor;
-        console.log(` > matrix: ${dataArray[1]}`); break;
-      default:
-        console.log(` > Data: ${dataArray[1]}`);
-    }
-    
-    if(sensorId != 0) {
-      const value = parseFloat(dataArray[1]);
-      if(isNaN(value)) return;
-      await postData(sensorId, value);
-    }
-  });
-
-  port.on('error', (err) => {
-    console.error(`ERROR SERIAL: ${err.message}`);
-  });
+    // 3. Enviamos los datos solo si el registro anterior fue exitoso
+    if (temperatureSensor) await postData(temperatureSensor, tempMock);
+    if (co2Sensor) await postData(co2Sensor, co2Mock);
+  }, 5000);
 }
 
 async function fetchExistingSensors() {
@@ -99,13 +71,17 @@ async function getOrRegisterSensor(existingSensors, name, type, location, buildi
         type,
         location,
         building,
-        floor
+        floor,
+        status: 'ONLINE',
+        battery: 100
       }) 
     });
     
     if (!response.ok) {
-      console.error(`ERROR API (POST): ${response.status}`);
+      const errorText = await response.text(); // Leemos el mensaje de la API
+      console.error(`ERROR API (POST) AL REGISTRAR [${name}]: ${errorText}`);
     } else {
+    // -------------------------------------
       const data = await response.json();
       const idToReturn = data.sensorId || data.nodeId; 
       console.log(` > Registered: [${name}] ${idToReturn}`);
@@ -124,11 +100,19 @@ async function postData(sensorId, value) {
         'Content-Type': 'application/json',
         'Authorization': AUTH_TOKEN
       },
-      body: JSON.stringify({ sensorId, value })
+      // Aseguramos que sensorId sea un número (Int) y value sea un número (Float)
+      body: JSON.stringify({ 
+        nodeId: Number(sensorId), 
+        value: Number(value) 
+      })
     });
     
-    if(!response.ok) console.error(`ERROR API: ${response.status}`);
-    else console.log(` < POST: [${sensorId}] ${value}`);
+    if(!response.ok) {
+      const errorDetail = await response.text();
+      console.error(`ERROR API (DATA): ${response.status} - ${errorDetail}`);
+    } else {
+      console.log(` < POST EXITOSO: [Sensor ${sensorId}] Valor: ${value}`);
+    }
   } catch (err) {
     console.error(`ERROR REQUEST: ${err.message}`);
   }
