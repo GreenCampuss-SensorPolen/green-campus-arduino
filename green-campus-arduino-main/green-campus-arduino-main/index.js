@@ -14,15 +14,15 @@ async function main() {
   const existingSensors = await fetchExistingSensors();
 
   // 1. Tipos en MAYÚSCULAS para pasar la validación estricta de la API
-  let temperatureSensor = await getOrRegisterSensor(existingSensors, 'Sensor Temperatura v2', 'TEMPERATURA', 'Aula 1', 'Edificio Principal', 'Planta Baja');
-  let co2Sensor = await getOrRegisterSensor(existingSensors, 'Sensor CO2 v2', 'CO2', 'Aula 1', 'Edificio Principal', 'Planta Baja');
+  let temperatureSensor = await getOrRegisterSensor(existingSensors, 'Sensor Temperatura', 'TEMPERATURA', 'Aula 1', 'Edificio Principal', 'Planta Baja');
+  let co2Sensor = await getOrRegisterSensor(existingSensors, 'Sensor CO2', 'CO2', 'Aula 1', 'Edificio Principal', 'Planta Baja');
 
   console.log("Iniciando Gemelo Digital sin hardware físico...");
   
   setInterval(async () => {
     // 2. Convertimos el resultado de toFixed de nuevo a Número real
     let tempMock = Number((20.0 + Math.random() * 5).toFixed(2));
-    let co2Mock = Number((10000.0 + Math.random() * 200).toFixed(0));
+    let co2Mock = Number((400.0 + Math.random() * 200).toFixed(0));
     
     // 3. Enviamos los datos solo si el registro anterior fue exitoso
     if (temperatureSensor) await postData(temperatureSensor, tempMock);
